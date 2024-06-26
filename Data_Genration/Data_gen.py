@@ -32,36 +32,62 @@ def add_technical_indicators(df):
     Returns:
         pandas.DataFrame: The DataFrame with the added technical indicators.
     """
-    # Define technical indicator parameters
-    windows = [20, 50, 100, 200]
-    ema_windows = [20, 50, 63, 100, 200]
-
     # Trend Indicators
-    df['SMA'] = df['Close'].rolling(window=windows[0]).mean()
-    df['EMA'] = df['Close'].ewm(span=ema_windows[0], adjust=False).mean()
-
-    for window in windows[1:]:
-        df[f'SMA_{window}'] = df['Close'].rolling(window=window).mean()
-        df[f'EMA_{window}'] = df['Close'].ewm(span=window, adjust=False).mean()
-
-    for window in ema_windows[1:]:
-        df[f'EMA_{window}'] = df['Close'].ewm(span=window, adjust=False).mean()
-
-    df['MACD'] = df['Close'].ewm(span=63, adjust=False).mean() - df['Close'].ewm(span=126, adjust=False).mean()
+    # SMA: Simple Moving Average, helps identify trend direction
+    # ML use: Can be used to create buy/sell signals or as a feature for trend prediction
+    df['SMA_20'] = ta.trend.sma_indicator(df['Close'], window=20)
+    df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
+    df['SMA_100'] = ta.trend.sma_indicator(df['Close'], window=100)
+    df['SMA_200'] = ta.trend.sma_indicator(df['Close'], window=200)
+    
+    # EMA: Exponential Moving Average, gives more weight to recent prices
+    # ML use: Similar to SMA, but may react faster to recent price changes
+    df['EMA_20'] = ta.trend.ema_indicator(df['Close'], window=20)
+    df['EMA_50'] = ta.trend.ema_indicator(df['Close'], window=50)
+    df['EMA_63'] = ta.trend.ema_indicator(df['Close'], window=63)
+    df['EMA_100'] = ta.trend.ema_indicator(df['Close'], window=100)
+    df['EMA_200'] = ta.trend.ema_indicator(df['Close'], window=200)
+    
+    # MACD: Moving Average Convergence Divergence, helps identify trend changes
+    # ML use: Can be used to predict trend reversals or as a feature for buy/sell decisions
+    df['MACD'] = ta.trend.macd_diff(df['Close'])
+    
+    # ADX: Average Directional Index, measures trend strength
+    # ML use: Can help in identifying strong trends, useful for trend-following strategies
     df['ADX'] = ta.trend.adx(df['High'], df['Low'], df['Close'])
 
     # Momentum Indicators
+    # RSI: Relative Strength Index, measures the speed and change of price movements
+    # ML use: Can help predict overbought or oversold conditions
     df['RSI'] = ta.momentum.rsi(df['Close'])
+    
+    # Stochastic Oscillator: Compares a closing price to its price range over time
+    # ML use: Another indicator for overbought/oversold conditions and potential reversals
     df['Stoch_Osc'] = ta.momentum.stoch(df['High'], df['Low'], df['Close'])
+    
+    # Williams %R: Measures overbought and oversold levels
+    # ML use: Similar to RSI and Stochastic, can be used to predict potential price reversals
     df['Williams_R'] = ta.momentum.williams_r(df['High'], df['Low'], df['Close'])
 
     # Volatility Indicators
+    # Bollinger Bands: Measure market volatility and overbought/oversold conditions
+    # ML use: Can be used to predict potential breakouts or mean reversion
     df['BBlow'], df['BBmid'], df['BBupp'] = ta.volatility.bollinger_hband_indicator(df['Close']), ta.volatility.bollinger_mavg(df['Close']), ta.volatility.bollinger_lband_indicator(df['Close'])
+    
+    # ATR: Average True Range, measures market volatility
+    # ML use: Can be used to set stop-loss levels or as a feature for volatility prediction
     df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'])
 
     # Volume Indicators
+    # OBV: On-Balance Volume, relates volume to price change
+    # ML use: Can be used to confirm price trends or predict potential reversals
     df['OBV'] = ta.volume.on_balance_volume(df['Close'], df['Volume'])
+    
+    # CMF: Chaikin Money Flow, measures buying and selling pressure
+    # ML use: Can help in predicting potential trend reversals or continuation
     df['CMF'] = ta.volume.chaikin_money_flow(df['High'], df['Low'], df['Close'], df['Volume'])
+
+    print("Hello TECHNICAL")
 
     return df
 
@@ -107,37 +133,58 @@ def add_derived_features(df):
 
         The function returns the modified DataFrame with the added features.
     """
-    # Price change and percentage change
+    # Price change: Absolute change in price
+    # ML use: Direct indicator of price movement, useful for regression models
     df['Price_Change'] = df['Close'].diff()
+    
+    # Percentage change: Relative change in price
+    # ML use: Normalized price change, useful for comparing across different price scales
     df['Pct_Change'] = df['Close'].pct_change()
 
-    # Lagged features
-    lags = range(1, 11)
-    for lag in lags:
-        df[f'Close_Lag_{lag}'] = df['Close'].shift(lag)
-        df[f'Volume_Lag_{lag}'] = df['Volume'].shift(lag)
+    # Lagged features: Past values of close price and volume
+    # ML use: Allows the model to capture time-dependent patterns and trends
+    for i in [1, 2, 3, 5, 10]:
+        df[f'Close_Lag_{i}'] = df['Close'].shift(i)
+        df[f'Volume_Lag_{i}'] = df['Volume'].shift(i)
 
-    # Rolling statistics
-    windows = [5, 10, 20]
-    for window in windows:
-        for column in ['Close', 'Volume']:
-            df[f'{column}_Roll_Mean_{window}'] = df[column].rolling(window=window).mean()
-            df[f'{column}_Roll_Std_{window}'] = df[column].rolling(window=window).std()
+    # Rolling statistics: Moving averages and standard deviations
+    # ML use: Captures recent trends and volatility, can help in predicting future movements
+    for window in [5, 10, 20]:
+        df[f'Close_Roll_Mean_{window}'] = df['Close'].rolling(window=window).mean()
+        df[f'Close_Roll_Std_{window}'] = df['Close'].rolling(window=window).std()
+        df[f'Volume_Roll_Mean_{window}'] = df['Volume'].rolling(window=window).mean()
 
-    # Relative volume
+    # Relative volume: Current volume compared to recent average
+    # ML use: Identifies unusual trading activity, which might precede significant price moves
     df['Relative_Volume'] = df['Volume'] / df['Volume'].rolling(window=20).mean()
 
-    # Day of week and is month end
+    # Day of week: Captures potential day-of-week effects
+    # ML use: Some stocks might have patterns related to the day of the week
     df['Day_of_Week'] = df['Date'].dt.dayofweek
+
+    # Is month end: Captures potential end-of-month effects
+    # ML use: Some stocks might have patterns related to the end of the month (e.g., due to rebalancing)
     df['Is_Month_End'] = df['Date'].dt.is_month_end.astype(int)
 
-    # VWAP and high volume with significant price move
+    # VWAP: Volume-Weighted Average Price
+    # ML use: Provides a benchmark for intraday trades, can be used to identify trend strength
     df['VWAP'] = (df['Close'] * df['Volume']).cumsum() / df['Volume'].cumsum()
-    volume_stats = df['Volume'].rolling(window=20)
-    df['High_Volume'] = (df['Volume'] > (volume_stats.mean() + 2 * volume_stats.std())).astype(int)
+
+    # High Volume: Identifies days with unusually high trading volume
+    # ML use: Can indicate important events or significant market interest
+    volume_mean = df['Volume'].rolling(window=20).mean()
+    volume_std = df['Volume'].rolling(window=20).std()
+    df['High_Volume'] = (df['Volume'] > (volume_mean + 2 * volume_std)).astype(int)
+
+    # Significant Price Move: Identifies days with unusually large price changes
+    # ML use: Can indicate important events or significant shifts in market sentiment
     returns = df['Close'].pct_change()
-    returns_stats = returns.rolling(window=20)
-    df['Significant_Price_Move'] = (abs(returns - returns_stats.mean()) > (2 * returns_stats.std())).astype(int)
+    returns_mean = returns.rolling(window=20).mean()
+    returns_std = returns.rolling(window=20).std()
+    df['Significant_Price_Move'] = (abs(returns - returns_mean) > (2 * returns_std)).astype(int)
+
+    # Volume Spike with Price Move: Identifies high volume days with significant price changes
+    # ML use: Can indicate particularly important market events or major shifts in supply/demand
     df['Volume_Spike_With_Price_Move'] = (df['High_Volume'] & df['Significant_Price_Move']).astype(int)
 
     return df
