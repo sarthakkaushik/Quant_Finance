@@ -1,0 +1,4 @@
+2024-07-12 07:55:47.546 | INFO     | tickerstore.store:__init__:37 - Creating TickerStore instance object
+2024-07-12 07:55:47.547 | INFO     | tickerstore.store:historical_data:116 - Starting to fetch historical data
+2024-07-12 07:55:47.549 | INFO     | tickerstore.store:historical_data:141 - Trying source NSE for fetching historical data
+2024-07-12 07:55:47.550 | INFO     | tickerstore.store:historical_data:143 - Calling nse_historical_data
